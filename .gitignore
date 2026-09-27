@@ -12,3 +12,17 @@ Thumbs.db
 !.vscode/extensions.json
 .idea
 *.log
+
+.gradle
+android/.gradle
+android/app/build
+android/build
+android/local.properties
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+
+android-sdk/
+tools/

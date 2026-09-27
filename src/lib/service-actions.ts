@@ -1,12 +1,33 @@
-import type { WebsiteService } from '../types/service'
+import { openExternalUrl } from '../services/externalLinkService'
+import type {
+  Service,
+  WebsiteService,
+  WechatWebService,
+} from '../types/service'
+
+export function getWebsiteLaunchUrl(service: WebsiteService): string {
+  return service.sessionEntryUrl ?? service.url
+}
 
 export function openWebsite(service: WebsiteService): boolean {
-  const newWindow = window.open(service.url, '_blank', 'noopener,noreferrer')
+  return openExternalUrl(getWebsiteLaunchUrl(service))
+}
 
-  if (!newWindow) {
-    return false
+export function openWechatWeb(service: WechatWebService): boolean {
+  return openExternalUrl(service.url)
+}
+
+export function openService(
+  service: Service,
+  _returnTo = '/',
+): boolean {
+  if (service.type === 'website') {
+    return openWebsite(service)
   }
 
-  newWindow.opener = null
-  return true
+  if (service.type === 'wechat-web') {
+    return openWechatWeb(service)
+  }
+
+  return false
 }

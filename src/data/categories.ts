@@ -4,7 +4,7 @@ export const serviceCategories: readonly ServiceCategory[] = [
   {
     id: 'learning',
     name: '学习',
-    description: '教学、课程与签到',
+    description: '教学、课程、图书与签到',
     icon: 'GraduationCap',
     color: 'green',
   },
@@ -14,13 +14,6 @@ export const serviceCategories: readonly ServiceCategory[] = [
     description: '门户与校园事务',
     icon: 'Landmark',
     color: 'blue',
-  },
-  {
-    id: 'resources',
-    name: '资源',
-    description: '图书与学习资源',
-    icon: 'Library',
-    color: 'gold',
   },
   {
     id: 'life',

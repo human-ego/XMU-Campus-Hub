@@ -45,10 +45,31 @@ export function ServiceCard({
   const Icon = serviceIcons[service.icon]
   const category = categoryMap[service.category]
   const isWebsite = service.type === 'website'
+  const isWechatWeb = service.type === 'wechat-web'
+
+  const typeLabel = isWebsite
+    ? '网站'
+    : isWechatWeb
+      ? '微信服务'
+      : '微信小程序'
 
   const actionLabel = isWebsite
     ? `访问${service.name}网站`
-    : `打开微信小程序：${service.miniProgramName}`
+    : isWechatWeb
+      ? `打开微信服务入口：${service.name}`
+      : `打开微信小程序：${service.miniProgramName}`
+
+  const actionText = isWebsite
+    ? '进入服务'
+    : isWechatWeb
+      ? '打开微信服务入口'
+      : '查看打开方式'
+
+  const launchText = isWebsite
+    ? '浏览器直接打开'
+    : isWechatWeb
+      ? '微信官方网页授权'
+      : '微信内搜索打开'
 
   return (
     <button
@@ -79,19 +100,21 @@ export function ServiceCard({
         <div className="mt-1 flex items-center gap-1 text-[10px] text-[var(--muted)]">
           <span
             className={`size-1.5 rounded-full ${
-              isWebsite ? 'bg-[var(--blue)]' : 'bg-[var(--coral)]'
+              isWebsite
+                ? 'bg-[var(--blue)]'
+                : isWechatWeb
+                  ? 'bg-[var(--gold)]'
+                  : 'bg-[var(--coral)]'
             }`}
             aria-hidden="true"
           />
-          {isWebsite ? '网页' : '小程序'}
+          {isWebsite ? '网页' : isWechatWeb ? '微信服务' : '小程序'}
         </div>
       </div>
 
       <div
         className={`hidden w-full flex-col rounded-lg sm:flex ${
-          compact
-            ? 'min-h-[168px] p-5'
-            : 'min-h-[210px] p-6'
+          compact ? 'min-h-[168px] p-5' : 'min-h-[210px] p-6'
         }`}
       >
         <div className="flex w-full items-start justify-between gap-4">
@@ -110,10 +133,12 @@ export function ServiceCard({
               className={`rounded-md px-2 py-1 text-[11px] font-semibold ${
                 isWebsite
                   ? 'bg-[var(--blue-soft)] text-[var(--blue)]'
-                  : 'bg-[var(--coral-soft)] text-[var(--coral)]'
+                  : isWechatWeb
+                    ? 'bg-[var(--gold-soft)] text-[var(--gold)]'
+                    : 'bg-[var(--coral-soft)] text-[var(--coral)]'
               }`}
             >
-              {isWebsite ? '网站' : '微信小程序'}
+              {typeLabel}
             </span>
           </span>
         </div>
@@ -125,7 +150,7 @@ export function ServiceCard({
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--muted)]">
             <span className="font-medium">{category.name}</span>
             <span aria-hidden="true">·</span>
-            <span>{isWebsite ? '浏览器直接打开' : '微信内搜索打开'}</span>
+            <span>{launchText}</span>
           </div>
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
             {service.description}
@@ -134,7 +159,7 @@ export function ServiceCard({
 
         <div className="mt-5 flex w-full items-center justify-between gap-3 border-t border-[var(--line-soft)] pt-4">
           <span className="text-sm font-medium text-[var(--brand)]">
-            {isWebsite ? '进入服务' : '查看打开方式'}
+            {actionText}
           </span>
           <ArrowUpRight
             className="size-4 text-[var(--brand)] transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"

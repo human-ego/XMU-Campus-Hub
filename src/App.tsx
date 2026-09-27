@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ShieldCheck } from 'lucide-react'
 import { AppHeader } from './components/layout/AppHeader'
+import { BottomNavigation } from './components/navigation/BottomNavigation'
 import { MiniProgramDialog } from './components/miniprogram/MiniProgramDialog'
 import { SearchBar } from './components/search/SearchBar'
 import { CategoryFilter } from './components/services/CategoryFilter'
@@ -8,15 +9,25 @@ import { CategorySection } from './components/services/CategorySection'
 import { EmptySearchState } from './components/services/EmptySearchState'
 import { ServiceGrid } from './components/services/ServiceGrid'
 import { FrequentlyUsedServices } from './components/usage/FrequentlyUsedServices'
+import { useAuth, type ConfirmedLoginResult } from './context/AuthContext'
 import { serviceCategories } from './data/categories'
 import { services } from './data/services'
+import { useHashRoute } from './hooks/useHashRoute'
 import { useServiceUsage } from './hooks/useServiceUsage'
-import { openWebsite } from './lib/service-actions'
+import { AuthCallbackPage } from './pages/AuthCallbackPage'
+import { LoginPage } from './pages/LoginPage'
+import { SchedulePage } from './pages/SchedulePage'
+import { XmuAuthValidationPage } from './pages/XmuAuthValidationPage'
+import { openService } from './lib/service-actions'
+import { getServiceOpenAction } from './lib/service-access'
 import { filterServices } from './lib/service-search'
+import { getCurrentReturnTo } from './services/authService'
+import { openXmuOfficialLogin } from './services/xmuSessionService'
 import type {
   MiniProgramService,
   Service,
   ServiceCategoryId,
+  WebsiteService,
 } from './types/service'
 
 export default function App() {
@@ -27,7 +38,16 @@ export default function App() {
   const [selectedMiniProgram, setSelectedMiniProgram] =
     useState<MiniProgramService | null>(null)
 
+  const { session, setPendingService } = useAuth()
+  const [location, navigate] = useHashRoute()
   const { usage, recordUsage, mostUsedServices } = useServiceUsage(services)
+
+  const pendingService = useMemo(() => {
+    return services.find(
+      (service): service is WebsiteService =>
+        service.id === session.pendingServiceId && service.type === 'website',
+    )
+  }, [session.pendingServiceId])
 
   const searchResults = useMemo(() => {
     const results = filterServices(services, query)
@@ -46,14 +66,61 @@ export default function App() {
 
   const isSearching = query.trim().length > 0
 
+  useEffect(() => {
+    if (location.route === 'home' && location.returnTo === '/services') {
+      window.requestAnimationFrame(() => {
+        document.getElementById('services')?.scrollIntoView()
+      })
+    }
+  }, [location.returnTo, location.route])
+
   const handleServiceOpen = (service: Service) => {
-    if (service.type === 'website') {
-      openWebsite(service)
-      recordUsage(service.id)
+    const openAction = getServiceOpenAction(service, session.status)
+
+    if (openAction === 'login') {
+      setPendingService(service.id)
+      navigate('login', getCurrentReturnTo())
       return
     }
 
-    setSelectedMiniProgram(service)
+    if (openAction === 'wechat-web') {
+      if (service.type === 'wechat-web') {
+        openService(service, getCurrentReturnTo())
+      }
+      return
+    }
+
+    if (openAction === 'miniprogram') {
+      if (service.type === 'miniprogram') {
+        setSelectedMiniProgram(service)
+      }
+      return
+    }
+
+    if (service.type === 'website') {
+      openService(service, getCurrentReturnTo())
+      recordUsage(service.id)
+    }
+  }
+
+  const handleLoginConfirmed = ({
+    returnTo,
+    serviceId,
+  }: ConfirmedLoginResult) => {
+    if (serviceId) {
+      const service = services.find(
+        (candidate): candidate is WebsiteService =>
+          candidate.id === serviceId && candidate.type === 'website',
+      )
+
+      if (service) {
+        openService(service, returnTo)
+        recordUsage(service.id)
+      }
+    }
+
+    setPendingService(undefined)
+    navigate('home', returnTo, true)
   }
 
   const resetSearch = () => {
@@ -61,9 +128,75 @@ export default function App() {
     setActiveCategory('all')
   }
 
+  const openLogin = () => {
+    setPendingService(undefined)
+    navigate('login', getCurrentReturnTo())
+  }
+
+  const returnFromLogin = (returnTo: string, replace = false) => {
+    navigate('home', returnTo, replace)
+  }
+
+  const handleTabNavigate = (tab: 'services' | 'schedule') => {
+    if (tab === 'schedule') {
+      navigate('schedule', '/schedule', true)
+      return
+    }
+
+    navigate('home', '/services', true)
+  }
+
+  if (location.route === 'login') {
+    return (
+      <div className="min-h-screen bg-[var(--canvas)]">
+        <AppHeader onLogin={openLogin} />
+        <LoginPage
+          pendingService={pendingService}
+          returnTo={location.returnTo}
+          onReturn={returnFromLogin}
+          onConfirmed={handleLoginConfirmed}
+        />
+      </div>
+    )
+  }
+
+  if (location.route === 'callback') {
+    return (
+      <div className="min-h-screen bg-[var(--canvas)]">
+        <AppHeader onLogin={openLogin} />
+        <AuthCallbackPage
+          returnTo={location.returnTo}
+          onLogin={openLogin}
+          onReturn={returnFromLogin}
+        />
+      </div>
+    )
+  }
+
+
+  if (location.route === 'xmu-auth') {
+    return (
+      <div className="min-h-screen bg-[var(--canvas)] pb-24">
+        <AppHeader onLogin={() => void openXmuOfficialLogin()} />
+        <XmuAuthValidationPage
+          onBack={() => navigate('schedule', '/schedule', true)}
+        />
+        <BottomNavigation active="schedule" onNavigate={handleTabNavigate} />
+      </div>
+    )
+  }
+  if (location.route === 'schedule') {
+    return (
+      <div className="h-[100dvh] overflow-hidden bg-[var(--canvas)]">
+        <SchedulePage />
+        <BottomNavigation active="schedule" onNavigate={handleTabNavigate} />
+      </div>
+    )
+  }
+
   return (
-    <div id="top" className="min-h-screen bg-[var(--canvas)]">
-      <AppHeader />
+    <div id="top" className="min-h-screen bg-[var(--canvas)] pb-24">
+      <AppHeader onLogin={openLogin} />
 
       <main>
         <section className="border-b border-[var(--line-soft)]">
@@ -166,6 +299,8 @@ export default function App() {
           <p>具体服务由学校相关部门提供，本站仅负责整理与导航。</p>
         </div>
       </footer>
+
+      <BottomNavigation active="services" onNavigate={handleTabNavigate} />
 
       <MiniProgramDialog
         service={selectedMiniProgram}

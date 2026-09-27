@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">厦大校园 Hub</string>
+    <string name="title_activity_main">厦大校园 Hub</string>
+    <string name="package_name">com.xmu.campushub</string>
+    <string name="custom_url_scheme">com.xmu.campushub</string>
+</resources>

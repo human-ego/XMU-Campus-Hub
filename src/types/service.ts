@@ -26,6 +26,32 @@ export interface ServiceCategory {
   color: 'green' | 'blue' | 'gold' | 'coral'
 }
 
+export type ServiceAuthMode =
+  | 'unified'
+  | 'separate'
+  | 'public'
+  | 'unverified'
+  | 'miniprogram'
+  | 'wechat-web'
+
+
+export type ServiceAccountModel =
+  | 'xmu-unified-account'
+  | 'none'
+  | 'unknown'
+  | 'wechat'
+
+export type LoginRequirement = 'required' | 'optional' | 'none' | 'unknown'
+
+export interface ServiceAuthPolicy {
+  mode: ServiceAuthMode
+  accountModel: ServiceAccountModel
+  loginRequirement: LoginRequirement
+  reuseUnifiedSession: boolean
+  note: string
+  loginUrl?: string
+}
+
 interface ServiceBase {
   id: string
   name: string
@@ -33,10 +59,17 @@ interface ServiceBase {
   category: ServiceCategoryId
   icon: ServiceIconName
   keywords: readonly string[]
+  auth: ServiceAuthPolicy
 }
 
 export interface WebsiteService extends ServiceBase {
   type: 'website'
+  url: string
+  sessionEntryUrl?: string
+}
+
+export interface WechatWebService extends ServiceBase {
+  type: 'wechat-web'
   url: string
 }
 
@@ -54,11 +87,12 @@ export interface MiniProgramLaunchConfig {
 export interface MiniProgramService extends ServiceBase {
   type: 'miniprogram'
   miniProgramName: string
+  wechatShareText?: string
   qrCode?: MiniProgramQrCode
   launch?: MiniProgramLaunchConfig
 }
 
-export type Service = WebsiteService | MiniProgramService
+export type Service = WebsiteService | MiniProgramService | WechatWebService
 
 export interface ServiceUsageRecord {
   count: number

@@ -34,6 +34,8 @@ export function MiniProgramDialog({
     return null
   }
 
+  const isSportsService = service.id === 'sports-venue'
+
   const copyMiniProgramName = async () => {
     try {
       await navigator.clipboard.writeText(service.miniProgramName)
@@ -78,7 +80,11 @@ export function MiniProgramDialog({
           id="mini-program-dialog-title"
           className="mt-4 text-lg font-semibold text-[var(--ink)] sm:mt-5 sm:text-xl"
         >
-          {service.qrCode ? '微信扫码打开：' : '打开微信小程序：'}
+          {isSportsService
+            ? '微信小程序：'
+            : service.qrCode
+              ? '微信扫码打开：'
+              : '打开微信小程序：'}
           {service.miniProgramName}
         </h2>
 
@@ -101,11 +107,15 @@ export function MiniProgramDialog({
         ) : (
           <>
             <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-              当前网页暂不能直接打开微信小程序。请进入微信，搜索“
-              <span className="font-medium text-[var(--ink)]">
-                {service.miniProgramName}
-              </span>
-              ”后打开对应小程序。
+              {isSportsService
+                ? '请在微信中打开或使用官方小程序入口。本 App 暂不提供一键直接跳转。'
+                : '当前网页暂不能直接打开微信小程序。请进入微信，搜索“'}
+              {!isSportsService ? (
+                <span className="font-medium text-[var(--ink)]">
+                  {service.miniProgramName}
+                </span>
+              ) : null}
+              {!isSportsService ? '”后打开对应小程序。' : null}
             </p>
 
             <div className="mt-5 rounded-lg border border-[var(--line)] bg-[var(--surface-soft)] p-4">
@@ -115,6 +125,16 @@ export function MiniProgramDialog({
               <p className="mt-2 text-base font-semibold text-[var(--ink)]">
                 {service.miniProgramName}
               </p>
+              {isSportsService && service.wechatShareText ? (
+                <div className="mt-4 border-t border-[var(--line-soft)] pt-3">
+                  <p className="text-xs font-semibold uppercase text-[var(--muted)]">
+                    官方分享入口
+                  </p>
+                  <p className="mt-2 break-all text-xs leading-5 text-[var(--ink)]">
+                    {service.wechatShareText}
+                  </p>
+                </div>
+              ) : null}
             </div>
           </>
         )}
