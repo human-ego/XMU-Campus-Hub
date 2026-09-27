@@ -210,6 +210,9 @@ final class XmuScheduleClient {
         for (String cookie : cookies) {
             cookieManager.setCookie(url, cookie);
         }
+        if (!cookies.isEmpty()) {
+            cookieManager.flush();
+        }
     }
 
     private static String readBody(HttpURLConnection connection, int status)

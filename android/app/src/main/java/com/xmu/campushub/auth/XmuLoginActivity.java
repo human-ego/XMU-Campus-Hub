@@ -1,6 +1,7 @@
 package com.xmu.campushub.auth;
 
 import android.annotation.SuppressLint;
+import android.net.Uri;
 import android.os.Bundle;
 import android.webkit.CookieManager;
 import android.webkit.WebResourceRequest;
@@ -50,6 +51,14 @@ public class XmuLoginActivity extends AppCompatActivity {
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
+            public void onPageFinished(WebView view, String url) {
+                if (isJwSessionUrl(url)) {
+                    CookieManager.getInstance().flush();
+                    view.postDelayed(XmuLoginActivity.this::finish, 100L);
+                }
+            }
+
+            @Override
             public boolean shouldOverrideUrlLoading(
                 WebView view,
                 WebResourceRequest request
@@ -82,11 +91,22 @@ public class XmuLoginActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        CookieManager.getInstance().flush();
         if (webView != null) {
             webView.stopLoading();
             webView.destroy();
             webView = null;
         }
         super.onDestroy();
+    }
+
+    private boolean isJwSessionUrl(String url) {
+        Uri uri = Uri.parse(url);
+        String host = uri.getHost();
+        String path = uri.getPath();
+        return "jw.xmu.edu.cn".equals(host)
+            && path != null
+            && (path.equals("/new/index.html")
+                || path.startsWith("/gsapp/sys/wdkbapp/"));
     }
 }

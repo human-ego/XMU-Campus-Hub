@@ -168,6 +168,7 @@ public class XmuSessionPlugin extends Plugin {
 
         probeWebView = webView;
         handler.postDelayed(probeTimeout, PROBE_TIMEOUT_MS);
+        cookieManager.flush();
         webView.loadUrl(PROBE_URL);
     }
 

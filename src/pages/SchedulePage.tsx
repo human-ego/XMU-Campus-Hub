@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   CalendarDays,
   ChevronLeft,
@@ -11,7 +11,9 @@ import { mockScheduleTerm } from '../data/mockSchedule'
 import { isCourseInWeek, parseXmuScheduleJson } from '../lib/xmuScheduleParser'
 import {
   fetchXmuSchedule,
+  getCachedXmuSchedule,
   getXmuStudentNumber,
+  saveXmuScheduleCache,
   setXmuStudentNumber,
   type XmuScheduleFetchResult,
 } from '../services/xmuSessionService'
@@ -109,6 +111,20 @@ function buildRealScheduleTerm(
   }
 }
 
+function buildTermFromResult(result: XmuScheduleFetchResult): ScheduleTerm | null {
+  try {
+    const courses = parseXmuScheduleJson(
+      JSON.stringify({ pkjgList: result.courseRows }),
+    )
+    if (result.courseRows.length > 0 && courses.length === 0) {
+      return null
+    }
+    return buildRealScheduleTerm(result, courses)
+  } catch {
+    return null
+  }
+}
+
 function courseDuration(course: Course): number {
   return course.endNode - course.startNode + 1
 }
@@ -126,15 +142,15 @@ function CourseBlock({
 
   return (
     <article
-      className="min-h-0 overflow-hidden rounded-md border border-white/45 p-1 text-white shadow-sm"
+      className="h-full min-h-0 overflow-hidden rounded-md border border-white/45 p-1.5 text-white shadow-sm"
       style={{ backgroundColor: course.color }}
       title={`${course.name}\n${start?.start ?? ''}-${end?.end ?? ''}\n${room}\n${course.teachers.join('、')}`}
     >
-      <div className="line-clamp-3 text-[8px] font-semibold leading-[10px]">
+      <div className="line-clamp-3 text-[10px] font-semibold leading-[12px]">
         {course.name}
       </div>
       {room ? (
-        <div className="mt-0.5 line-clamp-2 text-[7px] leading-[9px] opacity-90">
+        <div className="mt-1 line-clamp-2 text-[8px] leading-[10px] opacity-90">
           @{room}
         </div>
       ) : null}
@@ -238,8 +254,16 @@ function ScheduleGrid({
 }
 
 export function SchedulePage() {
-  const [term, setTerm] = useState<ScheduleTerm | null>(null)
-  const [selectedWeek, setSelectedWeek] = useState(1)
+  const [term, setTerm] = useState<ScheduleTerm | null>(() => {
+    const cached = getCachedXmuSchedule()
+    return cached ? buildTermFromResult(cached.result) : null
+  })
+  const [selectedWeek, setSelectedWeek] = useState(() => {
+    const cached = getCachedXmuSchedule()
+    const cachedTerm = cached ? buildTermFromResult(cached.result) : null
+    return cachedTerm ? getCurrentWeek(cachedTerm) : 1
+  })
+  const didInitialize = useRef(false)
   const [studentNumber, setStudentNumber] = useState(() =>
     getXmuStudentNumber(),
   )
@@ -253,50 +277,67 @@ export function SchedulePage() {
   const currentWeek = term ? getCurrentWeek(term) : 1
   const today = new Date()
 
-  const handleRefresh = useCallback(async (value: string) => {
-    const normalized = value.trim()
-    if (!normalized) {
-      setShowStudentInput(true)
-      setMessage('请输入本人学号')
-      return
-    }
-
-    setLoading(true)
-    setMessage('')
-
-    const result = await fetchXmuSchedule(normalized)
-    if (!result.success) {
-      setLoading(false)
-      setMessage(result.message || '无法读取厦大课表数据')
-      return
-    }
-
-    try {
-      const courses = parseXmuScheduleJson(
-        JSON.stringify({ pkjgList: result.courseRows }),
-      )
-      if (result.courseRows.length > 0 && courses.length === 0) {
-        throw new Error('课程数据解析结果为空')
+  const handleRefresh = useCallback(
+    async (value: string, background = false) => {
+      const normalized = value.trim()
+      if (!normalized) {
+        if (!background) {
+          setShowStudentInput(true)
+          setMessage('请输入本人学号')
+        }
+        return
       }
 
-      const nextTerm = buildRealScheduleTerm(result, courses)
+      if (!background) {
+        setLoading(true)
+        setMessage('')
+      }
+
+      const result = await fetchXmuSchedule(normalized)
+      if (!result.success) {
+        const hasCache = getCachedXmuSchedule() !== null
+        if (!background || !hasCache) {
+          setMessage(result.message || '无法读取厦大课表数据')
+        }
+        if (!background) {
+          setLoading(false)
+        }
+        return
+      }
+
+      const nextTerm = buildTermFromResult(result)
+      if (!nextTerm) {
+        if (!background || getCachedXmuSchedule() === null) {
+          setMessage('课表数据解析失败')
+        }
+        if (!background) {
+          setLoading(false)
+        }
+        return
+      }
+
       setXmuStudentNumber(normalized)
+      saveXmuScheduleCache(normalized, result)
       setStudentNumber(normalized)
       setTerm(nextTerm)
       setSelectedWeek(getCurrentWeek(nextTerm))
       setShowStudentInput(false)
       setMessage('')
-    } catch {
-      setMessage('课表数据解析失败')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+      if (!background) {
+        setLoading(false)
+      }
+    },
+    [],
+  )
 
   useEffect(() => {
-    const saved = getXmuStudentNumber()
+    if (didInitialize.current) return
+    didInitialize.current = true
+
+    const cached = getCachedXmuSchedule()
+    const saved = getXmuStudentNumber() || cached?.studentNumber || ''
     if (saved) {
-      void handleRefresh(saved)
+      void handleRefresh(saved, true)
     }
   }, [handleRefresh])
 
@@ -387,7 +428,7 @@ export function SchedulePage() {
                   读取本人课表
                 </h2>
                 <p className="mt-1 text-[11px] text-[var(--muted)]">
-                  学号只保存在当前 App 进程内，用于 XH 查询。
+                  学号和最近课表缓存在当前设备，下次自动读取。
                 </p>
               </div>
               <button

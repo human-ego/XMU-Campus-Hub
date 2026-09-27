@@ -40,6 +40,13 @@ export interface XmuScheduleFetchResult {
   message?: string
 }
 
+export interface XmuScheduleCache {
+  version: 1
+  savedAt: number
+  studentNumber: string
+  result: XmuScheduleFetchResult
+}
+
 interface NativeXmuSessionPlugin {
   openXmuOfficialLogin(): Promise<{ status?: string; message?: string }>
   probeXmuJwSession(): Promise<{ status?: string; message?: string }>
@@ -58,7 +65,18 @@ interface NativeXmuSessionPlugin {
 
 const NativeXmuSession = registerPlugin<NativeXmuSessionPlugin>('XmuSession')
 
-let activeStudentNumber = ''
+const STUDENT_NUMBER_STORAGE_KEY = 'campushub.xmu.studentNumber.v1'
+const SCHEDULE_CACHE_STORAGE_KEY = 'campushub.xmu.scheduleCache.v1'
+
+function loadStudentNumber(): string {
+  try {
+    return localStorage.getItem(STUDENT_NUMBER_STORAGE_KEY)?.trim() ?? ''
+  } catch {
+    return ''
+  }
+}
+
+let activeStudentNumber = loadStudentNumber()
 
 export function getXmuStudentNumber(): string {
   return activeStudentNumber
@@ -66,6 +84,66 @@ export function getXmuStudentNumber(): string {
 
 export function setXmuStudentNumber(value: string): void {
   activeStudentNumber = value.trim()
+  try {
+    if (activeStudentNumber) {
+      localStorage.setItem(STUDENT_NUMBER_STORAGE_KEY, activeStudentNumber)
+    } else {
+      localStorage.removeItem(STUDENT_NUMBER_STORAGE_KEY)
+    }
+  } catch {
+    // Storage failures must not block schedule rendering.
+  }
+}
+
+export function getCachedXmuSchedule(): XmuScheduleCache | null {
+  try {
+    const raw = localStorage.getItem(SCHEDULE_CACHE_STORAGE_KEY)
+    if (!raw) return null
+
+    const cache = JSON.parse(raw) as Partial<XmuScheduleCache>
+    const result = cache.result
+    if (
+      cache.version !== 1 ||
+      typeof cache.savedAt !== 'number' ||
+      typeof cache.studentNumber !== 'string' ||
+      !cache.studentNumber.trim() ||
+      !result ||
+      result.success !== true ||
+      !Array.isArray(result.periods) ||
+      !Array.isArray(result.courseRows)
+    ) {
+      return null
+    }
+
+    return {
+      version: 1,
+      savedAt: cache.savedAt,
+      studentNumber: cache.studentNumber.trim(),
+      result,
+    }
+  } catch {
+    return null
+  }
+}
+
+export function saveXmuScheduleCache(
+  studentNumber: string,
+  result: XmuScheduleFetchResult,
+): void {
+  const normalizedStudentNumber = studentNumber.trim()
+  if (!normalizedStudentNumber || !result.success) return
+
+  try {
+    const cache: XmuScheduleCache = {
+      version: 1,
+      savedAt: Date.now(),
+      studentNumber: normalizedStudentNumber,
+      result,
+    }
+    localStorage.setItem(SCHEDULE_CACHE_STORAGE_KEY, JSON.stringify(cache))
+  } catch {
+    // Storage failures must not block schedule rendering.
+  }
 }
 
 const XMU_JW_LOGIN_URL = 'https://jw.xmu.edu.cn/login'
@@ -168,7 +246,6 @@ export async function probeXmuJwSession(): Promise<XmuSessionProbeResult> {
 }
 
 export async function clearXmuSession(): Promise<XmuActionResult> {
-  activeStudentNumber = ''
   if (!isNative()) return androidOnly()
 
   try {
@@ -183,8 +260,8 @@ export async function clearXmuSession(): Promise<XmuActionResult> {
 
 /**
  * Fetches the current user's schedule through fixed native XMU endpoints.
- * The student number is used only as the required XH query value and is not
- * stored or returned by the native bridge.
+ * The student number is used as the required XH query value and is cached only
+ * on this device so later launches can refresh without prompting again.
  */
 export async function fetchXmuSchedule(
   studentNumber: string,
