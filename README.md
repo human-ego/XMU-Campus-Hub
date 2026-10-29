@@ -17,16 +17,42 @@
 - **复杂周次解析**：支持周次位图、单双周、连续与非连续周次，以及跨节课程、多教师和多教室信息。
 - **微信服务指引**：提供场馆预约、快递与宿舍热水入口，按服务类型展示授权链接、小程序名称或二维码。
 
-## 关键实现
+## 项目架构
 
-1. **WebView 会话管理**：在官方页面完成认证，由 Android `CookieManager` 管理登录态，支持 Session 验证与清理。
-2. **Java 原生桥接**：通过自定义 `XmuSessionPlugin` 向 React 提供登录、会话验证与课表读取能力，不向前端暴露 Cookie 或 Token。
-3. **课表数据建模**：将教务 API 返回数据解析为统一课程模型，驱动周课表展示。
+采用 **React 前端 + Capacitor 桥接 + Android 原生能力** 的混合应用架构，无独立业务后端；服务导航与个人课表两条业务链路分离。
 
-```text
-React UI → Capacitor Bridge → Java / WebView → 厦大教务系统
-React 课表 ← TypeScript Parser ← 学期、课程与节次数据
+```mermaid
+flowchart TD
+    subgraph Frontend[React / TypeScript 前端]
+        UI[页面与组件]
+        Services[服务搜索 / 分类 / 使用统计]
+        Schedule[课表服务]
+        Parser[课表解析 → Course / ScheduleTerm]
+        UI --> Services
+        UI --> Schedule
+        Parser --> UI
+    end
+    Services --> External[校园网站 / 微信服务指引]
+    Schedule --> Bridge[Capacitor Bridge]
+    subgraph Native[Android / Java 原生层]
+        Plugin[XmuSessionPlugin]
+        Login[XmuLoginActivity / WebView]
+        Cookie[CookieManager / Session]
+        Client[XmuScheduleClient]
+        Plugin --> Login
+        Login --> Cookie
+        Plugin --> Client
+        Cookie --> Client
+    end
+    Bridge <--> Plugin
+    Login --> Auth[厦大官方认证页面]
+    Client <--> API[厦大教务 API]
+    Plugin -->|学期 / 课程 / 节次数据，经 Bridge 返回| Parser
 ```
+
+- **展示与业务分离**：`pages / components` 负责界面，`services` 封装调用，`lib/xmuScheduleParser.ts` 将教务数据转换为统一课程模型。
+- **原生认证与数据访问**：WebView 完成官方认证，`CookieManager` 管理会话，Java 客户端复用登录态读取教务数据。
+- **受限桥接接口**：`XmuSessionPlugin` 仅提供登录、会话验证、课表读取与会话清理，不向 React 暴露 Cookie 或 Token。
 
 ## 本地运行
 
@@ -52,3 +78,4 @@ APK 输出：`android/app/build/outputs/apk/debug/app-debug.apk`。
 目前处于开发与真机测试阶段，仅提供 Debug 构建。真实课表读取依赖 Android 原生能力与学校教务接口；Web 端提供服务导航与界面展示。微信小程序通过指引打开，不支持一键直跳。
 
 本项目为非官方校园工具，无业务后端。密码与验证码在学校官方页面输入，服务使用统计保存在本地；教务接口变化可能影响课表读取。
+
