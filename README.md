@@ -2,6 +2,8 @@
 
 面向厦门大学学生的校园服务聚合与个人课表 App，支持 Web 访问与 Android APK。
 
+**[下载 Android APK](https://github.com/human-ego/XMU-Campus-Hub/releases/download/v0.1.0-debug/app-debug.apk)** · Android 7.0+ · Debug 测试版
+
 ## 技术栈
 
 | 层级 | 技术 |
@@ -75,7 +77,6 @@ APK 输出：`android/app/build/outputs/apk/debug/app-debug.apk`。
 
 ## 项目状态
 
-目前处于开发与真机测试阶段，仅提供 Debug 构建。真实课表读取依赖 Android 原生能力与学校教务接口；Web 端提供服务导航与界面展示。微信小程序通过指引打开，不支持一键直跳。
+目前处于开发与真机测试阶段，已提供 Debug 安装包。真实课表读取依赖 Android 原生能力与学校教务接口；Web 端提供服务导航与界面展示。微信小程序通过指引打开，不支持一键直跳。
 
 本项目为非官方校园工具，无业务后端。密码与验证码在学校官方页面输入，服务使用统计保存在本地；教务接口变化可能影响课表读取。
-
